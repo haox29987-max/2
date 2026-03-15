@@ -306,7 +306,14 @@ export function WarningCenter() {
           
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-            <Input placeholder="搜索作者或描述..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-40 sm:w-48 h-9 pl-8 text-sm" />
+            <Input placeholder="搜索作者或描述..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-40 sm:w-48 h-9 pl-8 pr-8 text-sm" />
+            {searchQuery && (
+              <X 
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer hover:text-slate-600 transition-colors" 
+                size={14} 
+                onClick={() => setSearchQuery('')} 
+              />
+            )}
           </div>
 
           <Select value={days.toString()} onValueChange={(v) => setDays(parseInt(v))}>

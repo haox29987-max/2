@@ -86,7 +86,7 @@ export interface ProductInfo {
 
 export const api = {
   chatWithAI: async (messages: {role: string, content: string}[], context: any) => {
-    const res = await axios.post<{role: string, content: string}>('/api/ai/chat', { messages, context });
+    const res = await axios.post<{role: string, content: string, action?: string, filename?: string, csv_data?: string}>('/api/ai/chat', { messages, context });
     return res.data;
   },
 

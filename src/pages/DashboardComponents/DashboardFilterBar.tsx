@@ -1,7 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input'; 
-import { Search, ArrowUp, ArrowDown, Download, RefreshCw } from 'lucide-react';
+import { Search, ArrowUp, ArrowDown, Download, RefreshCw, X } from 'lucide-react';
 
 export default function DashboardFilterBar(props: any) {
   const {
@@ -35,8 +35,15 @@ export default function DashboardFilterBar(props: any) {
              placeholder="搜索作者或机构名..." 
              value={searchQuery}
              onChange={e => setSearchQuery(e.target.value)}
-             className="w-40 sm:w-48 h-9 pl-8 text-sm"
+             className="w-40 sm:w-48 h-9 pl-8 pr-8 text-sm"
            />
+           {searchQuery && (
+             <X 
+               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer hover:text-slate-600 transition-colors" 
+               size={14} 
+               onClick={() => setSearchQuery('')} 
+             />
+           )}
          </div>
 
          <Select value={listGroupFilter} onValueChange={setListGroupFilter}>

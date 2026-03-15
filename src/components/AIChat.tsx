@@ -61,7 +61,23 @@ export function AIChat() {
       const apiMessages = newMessages.filter((_, i) => i !== 0 || newMessages.length === 1); 
       
       const res = await api.chatWithAI(apiMessages, context);
-      setMessages([...newMessages, res]);
+
+      // 处理 AI 导出动作
+      if (res.action === 'export' && res.csv_data) {
+        // 添加BOM头部确保Excel打开中文不乱码
+        const blob = new Blob(['\uFEFF' + res.csv_data], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', res.filename || 'export.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setMessages([...newMessages, { role: 'assistant', content: res.content || `为您生成并导出了表格文件：${res.filename || 'export.csv'}` }]);
+      } else {
+        setMessages([...newMessages, { role: res.role || 'assistant', content: res.content }]);
+      }
     } catch (error) {
       setMessages([...newMessages, { role: 'assistant', content: '抱歉，网络异常或未在设置中正确配置 DeepSeek API Key。' }]);
     } finally {
@@ -86,17 +102,17 @@ export function AIChat() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-8 right-24 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-2xl transition-transform hover:scale-105 z-50 flex items-center justify-center group"
+          className="fixed bottom-8 left-8 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-2xl transition-transform hover:scale-105 z-50 flex items-center justify-center group"
         >
           <Bot size={28} />
-          <span className="absolute right-full mr-4 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">
+          <span className="absolute left-full ml-4 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">
             唤醒智能数据助手
           </span>
         </button>
       )}
 
       {isOpen && (
-        <div className="fixed bottom-8 right-8 w-96 h-[600px] max-h-[80vh] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-8 left-8 w-96 h-[600px] max-h-[80vh] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-5">
           <div className="bg-indigo-600 p-4 flex items-center justify-between text-white shrink-0">
             <div className="flex items-center gap-2">
               <Bot size={20} />
@@ -147,18 +163,27 @@ export function AIChat() {
 
           <div className="p-3 border-t border-slate-100 bg-white shrink-0">
             <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="直接问我关于数据的问题..."
-                className="flex-1 bg-slate-100 border-none rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
-              />
+              <div className="flex items-center relative flex-1">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="直接问我关于数据的问题..."
+                  className="w-full bg-slate-100 border-none rounded-xl pl-4 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                />
+                {input && (
+                  <X 
+                    size={14} 
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer hover:text-slate-600" 
+                    onClick={() => setInput('')} 
+                  />
+                )}
+              </div>
               <button 
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="bg-indigo-600 text-white p-2 rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="bg-indigo-600 text-white p-2 rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
               >
                 <Send size={18} />
               </button>

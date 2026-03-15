@@ -26,13 +26,22 @@ export default function AccountVideoList({
             </span>
           </h2>
           
-          <div className="flex items-center gap-1.5 ml-0 sm:ml-auto w-full sm:w-auto">
-            <Input 
-              placeholder="在此粘贴TikTok链接以手动补充..." 
-              value={newVideoUrl} 
-              onChange={(e) => setNewVideoUrl(e.target.value)} 
-              className="w-full sm:w-[280px] h-9 text-xs border-slate-300 focus-visible:ring-indigo-500"
-            />
+          <div className="flex items-center gap-1.5 ml-0 sm:ml-auto w-full sm:w-auto relative">
+            <div className="relative w-full sm:w-[280px]">
+              <Input 
+                placeholder="在此粘贴TikTok链接以手动补充..." 
+                value={newVideoUrl} 
+                onChange={(e) => setNewVideoUrl(e.target.value)} 
+                className="w-full h-9 text-xs border-slate-300 focus-visible:ring-indigo-500 pr-8"
+              />
+              {newVideoUrl && (
+                <X 
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer hover:text-slate-600 transition-colors" 
+                  size={14} 
+                  onClick={() => setNewVideoUrl('')} 
+                />
+              )}
+            </div>
             <Button size="sm" className="h-9 px-4 shrink-0 bg-slate-800 hover:bg-slate-900 text-white" onClick={handleAddManualVideo} disabled={addingVideo}>
               {addingVideo ? <Loader2 className="animate-spin w-3.5 h-3.5 mr-1.5" /> : <Plus className="w-3.5 h-3.5 mr-1.5" />} 主动添加
             </Button>
