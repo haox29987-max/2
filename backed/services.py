@@ -12,15 +12,24 @@ from database import get_db_connection
 from scraper import get_request_headers, fetch_page_source, merge_analysis_results, fetch_profile_video_urls
 from models import VIDEO_ID_REGEX, translate_to_zh
 
+# 用于普通单点更新、前端交互的响应式线程池
 executor = ThreadPoolExecutor(max_workers=3) 
+# 专门用于承载全局多轮重试调度器的主后台线程
+global_batch_executor = ThreadPoolExecutor(max_workers=1)
+
 PROGRESS_STORE = {}
 scheduler = BackgroundScheduler()
 
-def process_video_urls(account_id: int, username: str, urls: List[str], is_single: bool = False, scraped_video_count: int = 0):
+def process_video_urls(account_id: int, username: str, urls: List[str], is_single: bool = False, scraped_video_count: int = 0, progress_total: int = 0, progress_offset: int = 0, progress_prefix: str = "") -> bool:
+    """
+    修改点：增加了布尔值返回值。True 代表抓取且入库成功；False 代表遭遇风控拦截导致抓取失败。
+    """
     total = len(urls)
-    if total == 0: return
+    if total == 0: return True
         
-    if not is_single: PROGRESS_STORE[account_id] = {"total": total, "current": 0, "status": "正在全速并发抓取中...", "done": False}
+    act_total = progress_total if progress_total > 0 else total
+
+    if not is_single: PROGRESS_STORE[account_id] = {"total": act_total, "current": progress_offset, "status": progress_prefix or "正在全速并发抓取中...", "done": False}
         
     try:
         req_hdrs = get_request_headers()
@@ -31,6 +40,7 @@ def process_video_urls(account_id: int, username: str, urls: List[str], is_singl
         
         def fetch_and_parse(target_url):
             try:
+                # 高并发下的微小抖动，避免瞬间发包特征太明显
                 time.sleep(random.uniform(0.1, 0.8))
                 html = fetch_page_source(target_url, req_headers=req_hdrs)
                 parsed = merge_analysis_results(target_url, html, c_timestamp, username)
@@ -45,7 +55,6 @@ def process_video_urls(account_id: int, username: str, urls: List[str], is_singl
                 with progress_lock:
                     completed_count += 1
                     if success and parsed_rows and parsed_rows[0].get("作者ID"):
-                        # 【方案2核心】在这里拦截并直接翻译好商品类目，存入字典
                         for row in parsed_rows:
                             raw_cat = row.get("商品类目名称", "")
                             if raw_cat:
@@ -60,11 +69,14 @@ def process_video_urls(account_id: int, username: str, urls: List[str], is_singl
                                 row["display_category"] = "未知类目"
                         processed_videos.extend(parsed_rows)
                     if not is_single:
-                        PROGRESS_STORE[account_id] = {"total": total, "current": completed_count, "status": f"并发极速解析中 ({completed_count}/{total})...", "done": False}
+                        status_str = f"{progress_prefix} ({progress_offset + completed_count}/{act_total})..." if progress_prefix else f"并发解析中 ({progress_offset + completed_count}/{act_total})..."
+                        PROGRESS_STORE[account_id] = {"total": act_total, "current": progress_offset + completed_count, "status": status_str, "done": False}
 
+        # 智能风控识别点 1：虽然请求了 URL，但返回的全是空数据/解析失败，证明被盾拦截了
         if not processed_videos:
-            if not is_single: PROGRESS_STORE[account_id] = {"total": total, "current": total, "status": "解析完成 (无有效数据)", "done": True}
-            return
+            if not is_single and (progress_offset + total >= act_total):
+                PROGRESS_STORE[account_id] = {"total": act_total, "current": act_total, "status": "遭遇风控拦截 (无有效数据)", "done": True}
+            return False
 
         best_row = processed_videos[0]
         for r in processed_videos:
@@ -74,7 +86,7 @@ def process_video_urls(account_id: int, username: str, urls: List[str], is_singl
             "nickname": best_row.get("作者名", username),
             "avatar_url": best_row.get("avatar_url", ""),
             "reg_time": best_row.get("注册时间", "未知") if best_row.get("注册时间") else "未知",
-            "uid": best_row.get("作者ID", ""), # 🚀 修复点：提取爬虫抓到的真实 UID
+            "uid": best_row.get("作者ID", ""), 
             "follower_count": best_row.get("作者粉丝数", 0),
             "following_count": best_row.get("following_count", 0),
             "heart_count": best_row.get("heart_count", 0),
@@ -88,7 +100,6 @@ def process_video_urls(account_id: int, username: str, urls: List[str], is_singl
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 🚀 获取现有的 reg_time、created_at 以及 uid
         acc_info = cursor.execute("SELECT reg_time, created_at, uid FROM accounts WHERE id=?", (account_id,)).fetchone()
         existing_reg_time = acc_info['reg_time'] if acc_info and acc_info['reg_time'] else "未知"
         existing_created_at = acc_info['created_at'] if acc_info and acc_info['created_at'] else ""
@@ -106,14 +117,12 @@ def process_video_urls(account_id: int, username: str, urls: List[str], is_singl
         if not final_uid:
             final_uid = existing_uid
 
-        # 🚀 核心修改点：在 UPDATE 语句中加入 uid=? 
         cursor.execute('''UPDATE accounts SET nickname=?, avatar_url=?, reg_time=?, created_at=?, uid=?, last_updated=datetime('now', 'localtime') WHERE id=?''', 
                        (account_stats_merged["nickname"], account_stats_merged["avatar_url"], final_reg_time, final_created_at, final_uid, account_id))
         
         cursor.execute('''INSERT INTO snapshots (account_id, follower_count, following_count, heart_count, video_count, play_count, pid_count, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))''', 
                        (account_id, account_stats_merged["follower_count"], account_stats_merged["following_count"], account_stats_merged["heart_count"], account_stats_merged["video_count"], total_plays, total_pids))
 
-        # 【方案2核心】写入 SQL 中增加 display_category 字段
         sql_new = '''INSERT INTO videos (account_id, video_id, desc, create_time, duration, category, play_count, digg_count, comment_count, share_count, cover_url, platform_category, sub_label, vq_score, is_ai, video_type, pid, product_category, display_category, is_deleted, music_name, collect_count)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?) 
                 ON CONFLICT(video_id, pid) DO UPDATE SET 
@@ -172,9 +181,14 @@ def process_video_urls(account_id: int, username: str, urls: List[str], is_singl
               
         conn.commit()
         conn.close()
-        if not is_single: PROGRESS_STORE[account_id] = {"total": total, "current": total, "status": "数据聚合入库完成！", "done": True}
+        
+        if not is_single and (progress_offset + total >= act_total):
+            PROGRESS_STORE[account_id] = {"total": act_total, "current": act_total, "status": "数据聚合入库完成！", "done": True}
+        
+        return True
     except Exception as e:
-        if not is_single: PROGRESS_STORE[account_id] = {"total": total, "current": 0, "status": "并发解析系统发生故障", "done": True}
+        if not is_single: PROGRESS_STORE[account_id] = {"total": act_total, "current": 0, "status": "并发解析系统发生故障", "done": True}
+        return False
 
 def update_account_data_initial(account_id: int, username: str):
     conn = get_db_connection()
@@ -214,66 +228,140 @@ def refresh_existing_videos(account_id: int, limit: int = 30):
     if valid_urls: process_video_urls(account_id, username, valid_urls, scraped_video_count=playlist_count)
     else: PROGRESS_STORE[account_id] = {"total": limit, "current": limit, "status": "暂无需要更新的新鲜数据", "done": True}
 
-# =========================================================================
-# 新增方法：专门用于后台每日综合定期更新任务（先更细新视频，再全量更新旧视频）
-# =========================================================================
-def daily_scheduled_account_update(account_id: int):
+def daily_scheduled_account_update(account_id: int) -> bool:
+    """
+    修改点：增加返回布尔值。用于让多轮调度器知道该账号在这一轮有没有触发风控。
+    返回 True 表示彻底更新成功；返回 False 表示遭遇风控，需要进入下一轮重试缓存。
+    """
     conn = get_db_connection()
     acc = conn.cursor().execute("SELECT username, type FROM accounts WHERE id = ?", (account_id,)).fetchone()
     if not acc:
         conn.close()
-        return
+        return True # 账号不存在，不需要重试
     username = acc['username']
 
-    # 获取该账号类型的抓取深度限制配置
     settings = dict(conn.cursor().execute("SELECT key, value FROM settings").fetchall())
     limit_key = 'internal_scrape_video_limit' if acc['type'] == 'internal' else 'external_scrape_video_limit'
     scrape_limit = int(settings.get(limit_key) or 30)
 
-    # 提取被标记删除的视频
     deleted_rows = conn.cursor().execute("SELECT video_id FROM videos WHERE account_id = ? AND is_deleted = 1", (account_id,)).fetchall()
     deleted_vids = {row['video_id'] for row in deleted_rows}
 
-    # 提取正常存在的历史视频
     existing_rows = conn.cursor().execute("SELECT video_id FROM videos WHERE account_id = ? AND is_deleted = 0", (account_id,)).fetchall()
     active_old_vids = {row['video_id'] for row in existing_rows}
-    
-    # 全部已入库记录合集，用来判断新拉取的是否是真正的全新视频
     all_existing_vids = deleted_vids.union(active_old_vids)
     conn.close()
 
-    # 1. 抓取作者主页链接，检测有没有更新的最新视频
     vids_data_urls, playlist_count = fetch_profile_video_urls(username, limit=scrape_limit + len(deleted_vids))
+    
+    # 智能风控识别点 2：明明库里有旧视频，但主页请求返回 0 个视频，大概率 IP 被封禁（弹出了验证码）
+    if not vids_data_urls and active_old_vids:
+        return False 
     
     new_urls = []
     for url in vids_data_urls:
         match = VIDEO_ID_REGEX.search(url)
         if match:
             vid = match.group(1)
-            # 如果本地从未见过这个 video_id，则视为新更新视频
             if vid not in all_existing_vids:
                 new_urls.append(url)
 
-    # 2. 对新更新的视频链接优先抓取数据并添加入库（is_single=True 不干涉前端手动刷新进度）
-    if new_urls:
-        process_video_urls(account_id, username, new_urls, is_single=True, scraped_video_count=playlist_count)
+    total_tasks = len(new_urls) + len(active_old_vids)
+    if total_tasks == 0:
+        PROGRESS_STORE[account_id] = {"total": 100, "current": 100, "status": "主页干净无遗漏，已跳过", "done": True}
+        return True
 
-    # 3. 把所有旧的数据库里面的视频链接全部进行全量更新
+    current_offset = 0
+    success_all = True
+
+    if new_urls:
+        # 获取当前进度前缀（由多轮调度器写入的 status 提取），保持 UI 一致性
+        current_status = PROGRESS_STORE.get(account_id, {}).get("status", "")
+        prefix = "新增视频抓取中" if "极速抓取" in current_status else "风控重试新增视频中"
+        
+        PROGRESS_STORE[account_id] = {"total": total_tasks, "current": 0, "status": f"发现 {len(new_urls)} 个新视频，开始抓取...", "done": False}
+        res = process_video_urls(account_id, username, new_urls, is_single=False, scraped_video_count=playlist_count, progress_total=total_tasks, progress_offset=current_offset, progress_prefix=prefix)
+        if not res: success_all = False
+        current_offset += len(new_urls)
+
     if active_old_vids:
         old_urls = [f"https://www.tiktok.com/@{username}/video/{vid}" for vid in active_old_vids]
+        current_status = PROGRESS_STORE.get(account_id, {}).get("status", "")
+        prefix = "历史视频全量更新中" if "极速抓取" in current_status else "风控重试历史视频中"
         
-        # 将大量旧视频分批次处理，避免单次并发请求压垮底层抓取或者触发反爬
         for i in range(0, len(old_urls), 20):
-            process_video_urls(account_id, username, old_urls[i:i+20], is_single=True)
-            time.sleep(5)  # 分批处理增加合理延缓休眠时间，极度降低被封风险
+            batch_urls = old_urls[i:i+20]
+            res = process_video_urls(account_id, username, batch_urls, is_single=False, progress_total=total_tasks, progress_offset=current_offset, progress_prefix=prefix)
+            if not res: success_all = False
+            current_offset += len(batch_urls)
+            # 批次之间短暂休眠
+            time.sleep(random.uniform(2.0, 4.0))
+            
+    return success_all
+
+# =========================================================================
+# 【核心升级】多轮退避重试调度器 (最高 5 轮高并发)
+# =========================================================================
+def _run_global_update_multi_round(accounts):
+    max_rounds = 5
+    current_round = 1
+    pending_accounts = accounts
+
+    while current_round <= max_rounds and pending_accounts:
+        failed_accounts = []
+        
+        # 1. 刷新本轮待处理账号的 UI 状态
+        for acc in pending_accounts:
+            acc_id = acc["id"]
+            if current_round == 1:
+                PROGRESS_STORE[acc_id] = {"total": 100, "current": 0, "status": "第1轮高并发极速抓取中...", "done": False}
+            else:
+                PROGRESS_STORE[acc_id] = {"total": 100, "current": 0, "status": f"第{current_round}轮风控重试排队中...", "done": False}
+
+        # 2. 启动高并发池执行当前轮次 (max_workers=5 提升效率)
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            future_to_acc = {pool.submit(daily_scheduled_account_update, acc["id"]): acc for acc in pending_accounts}
+            
+            for future in as_completed(future_to_acc):
+                acc = future_to_acc[future]
+                try:
+                    is_success = future.result()
+                    if not is_success:
+                        # 触发风控，加入失败列表准备下一轮
+                        failed_accounts.append(acc)
+                except Exception as e:
+                    failed_accounts.append(acc)
+
+        # 3. 检查是否全部更新完毕
+        if not failed_accounts:
+            break
+            
+        # 4. 准备进入下一轮
+        pending_accounts = failed_accounts
+        current_round += 1
+        
+        # 如果还有下一轮，先让服务器 IP 彻底冷静 20~30 秒，这是防死封的关键！
+        if current_round <= max_rounds:
+            for acc in pending_accounts:
+                 PROGRESS_STORE[acc["id"]] = {"total": 100, "current": 0, "status": f"遭遇风控，冷却IP准备第{current_round}轮重试...", "done": False}
+            time.sleep(random.uniform(20.0, 30.0))
+
+    # 5. 经过 5 轮血战仍然失败的账号，进行特殊标识
+    for acc in pending_accounts:
+        PROGRESS_STORE[acc["id"]] = {"total": 100, "current": 100, "status": "❌ 连续5轮触发风控，更新失败", "done": True}
 
 def scheduled_update_all():
     conn = get_db_connection()
     accounts = conn.cursor().execute("SELECT id FROM accounts WHERE status = 'active'").fetchall()
     conn.close()
-    for acc in accounts: 
-        # 修改调用逻辑：调用我们针对业务场景重写过的 daily_scheduled_account_update 方法
-        executor.submit(daily_scheduled_account_update, acc["id"])
+
+    if not accounts: return
+
+    for acc in accounts:
+        PROGRESS_STORE[acc["id"]] = {"total": 100, "current": 0, "status": "已加入全局并发列车...", "done": False}
+        
+    # 将包含智能重试机制的 Multi-Round 调度器推入后台独立线程运行，不阻塞主程序
+    global_batch_executor.submit(_run_global_update_multi_round, accounts)
 
 def scheduled_24h_video_updater():
     conn = get_db_connection()

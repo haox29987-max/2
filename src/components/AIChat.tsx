@@ -14,9 +14,15 @@ export function AIChat() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 🚀 核心修复：监听 messages 和 isOpen，确保点开面板时立刻置底
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (isOpen) {
+      // 加上 50ms 延迟，确保弹窗 DOM 完全挂载并渲染完毕后再执行平滑滚动
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    }
+  }, [messages, isOpen]);
 
   const getPageContext = () => {
     const path = window.location.pathname;
@@ -135,6 +141,7 @@ export function AIChat() {
                 </div>
               </div>
             )}
+            {/* 滚动锚点 */}
             <div ref={messagesEndRef} />
           </div>
 
