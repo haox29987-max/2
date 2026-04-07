@@ -1,0 +1,25 @@
+{
+    "success": true,
+    "data": {
+        "video_revenue": "$9.74万",
+        "related_creator_count": 476,
+        "day_live_revenue": "$8,111.57",
+        "original_live_revenue": 56781.0,
+        "day_video_revenue": "$1.39万",
+        "unit_price": "$25.07",
+        "sale": "1.14万",
+        "revenue": "$28.52万",
+        "original_shopping_mall_revenue": 131100.0,
+        "original_video_revenue": 97353.0,
+        "creatorConversionRatio": 0.43157894736842106,
+        "day_sale": "1,625.43",
+        "original_revenue": 285234.0,
+        "day_revenue": "$4.07万",
+        "shopping_mall_revenue": "$13.11万",
+        "day_shopping_mall_revenue": "$1.87万",
+        "live_revenue": "$5.68万"
+    },
+    "message": null,
+    "cached": true,
+    "code": null
+}

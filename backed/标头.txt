@@ -1,0 +1,99 @@
+常规：
+请求 URL
+https://www.kalodata.com/product/detail/total
+请求方法
+POST
+状态代码
+200 OK
+Remote Address
+127.0.0.1:10808
+引用站点策略
+strict-origin-when-cross-origin
+
+response headers：
+alt-svc
+h3=":443"; ma=86400
+cache-control
+no-cache, no-store, max-age=0, must-revalidate
+cf-cache-status
+DYNAMIC
+cf-ray
+9e85a64deadfa8a6-LAX
+content-encoding
+gzip
+content-type
+application/json;charset=UTF-8
+date
+Tue, 07 Apr 2026 02:37:18 GMT
+expires
+0
+pragma
+no-cache
+server
+cloudflare
+strict-transport-security
+max-age=31536000 ; includeSubDomains
+traceid
+b8a979a9f3ae42fbac81c10a87f3640e
+vary
+Origin
+vary
+Access-Control-Request-Method
+vary
+Access-Control-Request-Headers
+vary
+accept-encoding
+x-content-type-options
+nosniff
+x-frame-options
+DENY
+x-xss-protection
+1; mode=block
+
+request headers：
+:authority
+www.kalodata.com
+:method
+POST
+:path
+/product/detail/total
+:scheme
+https
+accept
+application/json, text/plain, */*
+accept-encoding
+gzip, deflate, br, zstd
+accept-language
+zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
+content-length
+93
+content-type
+application/json
+cookie
+_ga=GA1.1.351210979.1774871044; _gcl_au=1.1.59906989.1774871044; AGL_USER_ID=ce8abe01-a484-4553-9139-7e29ebe0844e; _bl_uid=6gmpdnFIdqe496e8j61s816xIFeb; _twpid=tw.1774871044141.991332126295388668; _tt_enable_cookie=1; _ttp=01KMZ8XRKB30ZTA7F807YB19ET_.tt.1; _fbp=fb.1.1774871044791.394031421897288588; smidV2=202603301944117ac37a3e54124459df4483f571a08d7f0083809b3f14d8340; _c_WBKFRo=fW4ghPprEV4trpPRWODYivI7vpEZobxBFI1BpjQn; appVersion=2.0; deviceType=pc; deviceId=12eb1de4e4401c57775872379c7ef3cd; SESSION=N2M2Mzg3N2QtZDcxZi00ZjE3LTg1MzItMWIwMjlkZDhlMTll; page_session=1e4d665d-377e-4a57-9cab-3f1c01bc51ef; Hm_lvt_8aa1693861618ac63989ae373e684811=1775013804,1775186120,1775454475,1775529389; HMACCOUNT=314BB31598F49BBD; _cfuvid=Anw4owi02OaGEbbcq7ATZvw3_uabskT6S1p6eJesqqg-1775529390.69907-1.0.1.1-aY7jKfBdH2xl1rIIGBpkIkhr7_OHAj5_DVyr35vdrSg; cf_clearance=wGA9JeSGEs0zmNt5LtWuKrF3eUSyJo0qwKjhAHQu.DU-1775529392-1.2.1.1-I0xYGg0Tzp4Sch_sm16tIq3MQbroZjoO6l5pewm5sOWgkeAU05Xd7XEgYPuYn3zcPKILg.HFQh3KyWWez3BWMuuIICxC9UiWNhHjp_Rr5wMremKenTqSpGYxS5eY0rPfef6hnnrnvN_wZ2weAcil0Mlb3wNQ1fsGOL0leOlMcpf4EB7jbm7L8JMTYLm34_QDHjH9fmCId6m7a9SZObWq92v6owRfM.p6dZE3tf6M9k7yeolyh8FzPDxGZ8HkxChVbcQorDerlmKiuslB4hREdVQvbia82qyL4VNP2jrGmPIysYngVP8hd3NTGrbCyXZllL2yviR3vbVY.o.ElDw_Yg; _clck=vqm3ed%5E2%5Eg50%5E0%5E2280; _clsk=15j8pws%5E1775529410780%5E3%5E1%5Ev.clarity.ms%2Fcollect; _uetsid=28db0ff0317c11f19ecd81b59470cd64; _uetvid=c0d773902c2d11f1bde311940ff015a7; Hm_lpvt_8aa1693861618ac63989ae373e684811=1775529436; _ga_Q21FRKKG88=GS2.1.s1775529389$o21$g1$t1775529435$j14$l0$h0; .thumbcache_211a882976e013454a0403b9c1967076=k6zdQCMvmcuhsgL9K5WnLs0z7OByM8YnlkXBJc5obV6fqz06DuzkyevUOtEPIgXwVu1qACdOIxJLL2RG2SpGHA%3D%3D; ttcsid=1775529390900::jCyJedbb1HWgiNktHOHG.19.1775529436468.0::1.44313.45251::15592.7.1284.512::3114.2.340; ttcsid_CM9SHDBC77U4KJBR96OG=1775529390900::XOzLWDG-rY4g6uKhYJOQ.17.1775529436468.1
+country
+US
+currency
+USD
+language
+zh-CN
+origin
+https://www.kalodata.com
+priority
+u=1, i
+referer
+https://www.kalodata.com/product/detail?id=1729416308628231100&language=zh-CN&currency=CNY&region=US
+sec-ch-ua
+"Not:A-Brand";v="99", "Microsoft Edge";v="145", "Chromium";v="145"
+sec-ch-ua-mobile
+?0
+sec-ch-ua-platform
+"Windows"
+sec-fetch-dest
+empty
+sec-fetch-mode
+cors
+sec-fetch-site
+same-origin
+user-agent
+Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0

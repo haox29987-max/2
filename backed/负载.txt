@@ -1,0 +1,13 @@
+{id: "1729416308628231100", startDate: "2026-03-30", endDate: "2026-04-05", authority: true}
+authority
+: 
+true
+endDate
+: 
+"2026-04-05"
+id
+: 
+"1729416308628231100"
+startDate
+: 
+"2026-03-30"
